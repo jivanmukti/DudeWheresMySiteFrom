@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lat/Lng Object Literal</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier/1.0.3/oms.min.js"></script>
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDj0Sjm7fcZi5imkFrHIqDzcV41AA0rOfI"></script>
+    <script>
+
+      // Declare variables to use for the map
+      let map;
+      let markers = [];
+      let windows = [];
+
+      // Initialize the map function
+      function initialize() {
+
+        // Set options for the map
+        let mapOptions = {
+          zoom: 5,
+          // center: {lat: -34.397, lng: 150.644}
+        };
+        // Creates a rectangle
+        let bounds = new google.maps.LatLngBounds();
+
+        // Creating a new 'map' object
+        map = new google.maps.Map(document.getElementById('map'),
+            mapOptions);
+
+        // Create an instance of marker library object
+        let oms = new OverlappingMarkerSpiderfier(map, {
+          markersWontMove: true,
+          markersWontHide: true,
+          basicFormatEvents: true
+        });
+
+        // Send POST request for coordinates
+        $.ajax({
+          url: 'http://localhost:3000/points',
+          type: 'get',
+          success: function(arr, textStatus, jQxhr ){
+            // Iterating through each coordinate
+            console.log('In Google Maps: ', arr);
+            for (let i = 0; i < arr.data.length; i += 1) {
+              (function() { // Make a closure over the marker and marker data
+                let contentString = '<h1 id="firstHeading" class="firstHeading">' + arr.data[i].city + '</h1>'+
+                                    '<div id="bodyContent">'+
+                                    '<p><b>' + arr.data[i].city + '</b>, is located in <b>' + arr.data[i].country_name + '</b>, and is ' +
+                                    'the origination point for IP address <b>' + arr.data[i].ip + '</b>, which represents: </p>' + 
+                                    '<a href="' + arr.data[i].url + '">' + arr.data[i].url + '</a>' +
+                                    '<p>The latitude is <b>' + arr.data[i].latitude + '</b> and the longitude is <b>' + arr.data[i].latitude + '</b></p>'+
+                                    '</div>'+
+                                    '</div>';
+
+                // Creating a marker for each coordinate
+                markers.push(new google.maps.Marker({
+                  position: {lat: arr.data[i].latitude, lng: arr.data[i].longitude},
+                  map: map,
+                  animation: google.maps.Animation.DROP
+                }));
+
+                // Extending the boundary to fit each marker
+                bounds.extend(markers[i].getPosition());
+
+                // Creating a window with coordinates
+                windows.push(new google.maps.InfoWindow({
+                  content: contentString
+                }));
+                
+                // Attaching an event listener to open a window on a click
+                google.maps.event.addListener(markers[i], 'spider_click', function() {
+                  windows[i].open(map, markers[i]);
+                });
+
+                // adds the marker to the spiderfier _and_ the map
+                oms.addMarker(markers[i]);  
+              })();
+            }
+          },
+          async: false,
+          error: function( jqXhr, textStatus, errorThrown ){
+              console.log( errorThrown );
+          }
+        });
+
+        // Changing bounds is async so creating an event listener to enlarge after bound is set
+        google.maps.event.addListenerOnce(map, 'bounds_changed', function(event) {
+          this.setZoom(map.getZoom()-1);
+          if (this.getZoom() > 5) this.setZoom(5);
+        });
+        
+        // Sizing the map to fit all the markers
+        map.fitBounds(bounds);
+      }
+
+      // Initialize map when the window loads
+      google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+  </head>
+  <body>
+    <div id="map"></div>
+  </body>
+</html>
